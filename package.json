@@ -1,5 +1,5 @@
 {
-  "name": "trae-project",
+  "name": "mosaic-tool",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "build:single": "vite build --config vite.singlefile.config.ts",
     "check": "tsc -b --noEmit"
   },
   "dependencies": {
