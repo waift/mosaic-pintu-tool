@@ -62,12 +62,12 @@ function ManagerThumb({
       {...listeners}
       onClick={() => onToggle(item.id)}
       className={cn(
-        "group relative aspect-square cursor-grab overflow-hidden rounded border bg-base-800",
-        "active:cursor-grabbing",
+        "group relative h-20 w-20 shrink-0 cursor-grab overflow-hidden rounded border bg-base-700",
+        "transition-shadow active:cursor-grabbing",
         selected
           ? "border-accent-500 ring-2 ring-accent-500/60"
-          : "border-base-500 hover:border-base-400",
-        isDragging && "opacity-50",
+          : "border-base-500 hover:border-accent-500 hover:shadow-lift",
+        isDragging && "opacity-50 ring-2 ring-accent-500",
       )}
       title={`${item.file.name} · 单击选中 · 拖拽排序 · hover 看大图`}
     >
@@ -191,8 +191,15 @@ export default function ImageManagerModal() {
     if (mode === "multi" && selected.has(activeId) && selected.size > 1) {
       const group = images.filter((i) => selected.has(i.id));
       const rest = images.filter((i) => !selected.has(i.id));
-      const restIndex = rest.findIndex((i) => i.id === overId);
-      if (restIndex < 0) return; // 落在组内,不动
+      // 计算插入点:优先落在非选中图之前;若落点本身在组内,取它在原序列之前的未选中图数量
+      let restIndex = rest.findIndex((i) => i.id === overId);
+      if (restIndex < 0) {
+        const overIdx = images.findIndex((i) => i.id === overId);
+        if (overIdx < 0) return;
+        restIndex = images
+          .slice(0, overIdx)
+          .filter((i) => !selected.has(i.id)).length;
+      }
       setImages([
         ...rest.slice(0, restIndex),
         ...group,
@@ -252,10 +259,11 @@ export default function ImageManagerModal() {
   const previewIndex = previewId ? images.findIndex((i) => i.id === previewId) : -1;
 
   return (
-    <div
-      onClick={closeManager}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-base-900/80 p-4 backdrop-blur-sm animate-fade-in md:p-8"
-    >
+    <>
+      <div
+        onClick={closeManager}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-base-900/80 p-4 backdrop-blur-sm animate-fade-in md:p-8"
+      >
       <div
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-base-500 bg-base-700 shadow-lift"
@@ -380,7 +388,7 @@ export default function ImageManagerModal() {
                 items={images.map((i) => i.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                <div className="grid grid-cols-3 justify-items-center gap-3 sm:grid-cols-4 md:grid-cols-5">
                   {images.map((item, idx) => (
                     <ManagerThumb
                       key={item.id}
@@ -405,6 +413,7 @@ export default function ImageManagerModal() {
             : "多选:勾选徽章+绿框=已选 · 批量选取 · 整组拖 · 反选 · 批量删除 · 退出"}
         </div>
       </div>
+      </div>
 
       {/* 大图预览 lightbox */}
       {previewId && previewIndex >= 0 && previewUrl && (
@@ -424,6 +433,6 @@ export default function ImageManagerModal() {
           onClose={() => setPreviewId(null)}
         />
       )}
-    </div>
+    </>
   );
 }

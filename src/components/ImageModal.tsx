@@ -37,8 +37,11 @@ export default function ImageModal({
 
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-base-900/80 p-8 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-base-900/80 p-8 backdrop-blur-sm animate-fade-in"
     >
       <button
         onClick={onClose}
