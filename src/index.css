@@ -1,0 +1,144 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== 深色主题(默认) ==================== */
+:root,
+.dark {
+  --c-base-900: 14 14 18;
+  --c-base-800: 26 26 31;
+  --c-base-700: 35 35 41;
+  --c-base-600: 45 45 53;
+  --c-base-500: 58 58 68;
+  --c-base-400: 82 82 92;
+
+  --c-ink-50: 245 245 240;
+  --c-ink-100: 212 212 207;
+  --c-ink-200: 160 160 154;
+
+  --c-accent-400: 61 240 216;
+  --c-accent-500: 0 224 198;
+  --c-accent-600: 0 184 158;
+  --c-accent-700: 0 143 124;
+
+  --c-warn-400: 255 138 92;
+  --c-warn-500: 255 107 53;
+  --c-warn-600: 217 77 28;
+
+  color-scheme: dark;
+}
+
+/* ==================== 浅色主题 ==================== */
+.light {
+  --c-base-900: 240 240 234; /* 最浅背景:暖灰白 */
+  --c-base-800: 246 246 240; /* 主背景:暖白 */
+  --c-base-700: 255 255 255; /* 卡片背景:纯白 */
+  --c-base-600: 235 235 229; /* 卡片悬停 */
+  --c-base-500: 214 214 206; /* 边框/分隔 */
+  --c-base-400: 138 138 132; /* 次要文字 */
+
+  --c-ink-50: 26 26 31; /* 主要文字:深炭灰 */
+  --c-ink-100: 58 58 68; /* 次要文字 */
+  --c-ink-200: 106 106 100; /* 占位文字 */
+
+  --c-accent-400: 0 184 158;
+  --c-accent-500: 0 160 140; /* 主操作色:深一点保证白底对比 */
+  --c-accent-600: 0 134 117;
+  --c-accent-700: 0 110 96;
+
+  --c-warn-400: 234 90 40;
+  --c-warn-500: 217 77 28;
+  --c-warn-600: 180 60 22;
+
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: rgb(var(--c-base-900));
+  color: rgb(var(--c-ink-50));
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 极轻噪点纹理叠加层 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* 滚动条:细而冷静 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-base-500));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-base-400));
+}
+
+/* 数字输入框去除默认箭头 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* 取色器原生外观 */
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid rgb(var(--c-base-500));
+  border-radius: 6px;
+}
+
+/* range 滑块轨道基础样式 */
+input[type="range"] {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--c-base-900) / 0.6);
+}
