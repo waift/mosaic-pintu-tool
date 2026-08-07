@@ -5,6 +5,7 @@ import ImageList from "@/components/ImageList";
 import StitchConfig from "@/components/StitchConfig";
 import PreviewPanel from "@/components/PreviewPanel";
 import Toast from "@/components/Toast";
+import ImageManagerModal from "@/components/ImageManagerModal";
 import { useStitchStore } from "@/store/stitchStore";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useTheme } from "@/hooks/useTheme";
@@ -17,6 +18,7 @@ export default function Home() {
   const status = useStitchStore((s) => s.status);
   const result = useStitchStore((s) => s.result);
   const error = useStitchStore((s) => s.error);
+  const managerOpen = useStitchStore((s) => s.managerOpen);
   const setStatus = useStitchStore((s) => s.setStatus);
   const setResult = useStitchStore((s) => s.setResult);
   const setError = useStitchStore((s) => s.setError);
@@ -166,6 +168,8 @@ export default function Home() {
       </main>
 
       <Toast />
+
+      {managerOpen && <ImageManagerModal />}
     </div>
   );
 }

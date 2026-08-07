@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Trash2, LayoutGrid } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -102,6 +102,8 @@ function ThumbCard({
 export default function ImageList() {
   const images = useStitchStore((s) => s.images);
   const setImages = useStitchStore((s) => s.setImages);
+  const clearImages = useStitchStore((s) => s.clearImages);
+  const openManager = useStitchStore((s) => s.openManager);
   const [previewItem, setPreviewItem] = useState<ImageItem | null>(null);
 
   const sensors = useSensors(
@@ -123,13 +125,37 @@ export default function ImageList() {
   return (
     <>
       <div className="rounded border border-base-500 bg-base-700/40 p-3">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <span className="font-display text-xs font-medium text-ink-100">
             图片列表
           </span>
-          <span className="font-mono text-[10px] text-ink-200">
-            {images.length} 张 · 点击查看原图 · 拖拽排序
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[10px] text-ink-200">
+              {images.length} 张
+            </span>
+            <button
+              onClick={openManager}
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-1 font-mono text-[10px] text-ink-100 transition-colors",
+                "hover:bg-base-600",
+              )}
+              title="管理全部图片"
+            >
+              <LayoutGrid size={11} />
+              管理全部
+            </button>
+            <button
+              onClick={clearImages}
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-1 font-mono text-[10px] text-warn-400 transition-colors",
+                "hover:bg-warn-500/15",
+              )}
+              title="清空所有图片(保留配置)"
+            >
+              <Trash2 size={11} />
+              清空
+            </button>
+          </div>
         </div>
 
         <DndContext

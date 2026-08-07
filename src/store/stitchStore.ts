@@ -25,10 +25,14 @@ interface StitchStore {
   addImages: (items: ImageItem[]) => void;
   /** 删除指定图片 */
   removeImage: (id: string) => void;
+  /** 批量删除指定图片 */
+  removeImages: (ids: string[]) => void;
   /** 重排图片顺序 */
   reorderImages: (from: number, to: number) => void;
   /** 直接替换列表(用于 dnd-kit 排序) */
   setImages: (items: ImageItem[]) => void;
+  /** 仅清空图片列表(保留拼接配置) */
+  clearImages: () => void;
   /** 更新配置(部分) */
   updateConfig: (patch: Partial<StitchConfig>) => void;
   /** 设置生成状态 */
@@ -43,6 +47,12 @@ interface StitchStore {
   clearToast: () => void;
   /** 重置全部 */
   reset: () => void;
+  /** 图片管理弹窗开关 */
+  managerOpen: boolean;
+  /** 打开图片管理弹窗 */
+  openManager: () => void;
+  /** 关闭图片管理弹窗 */
+  closeManager: () => void;
 }
 
 export const useStitchStore = create<StitchStore>((set) => ({
@@ -52,6 +62,7 @@ export const useStitchStore = create<StitchStore>((set) => ({
   result: null,
   error: null,
   toast: null,
+  managerOpen: false,
 
   addImages: (items) =>
     set((state) => ({ images: [...state.images, ...items] })),
@@ -68,6 +79,15 @@ export const useStitchStore = create<StitchStore>((set) => ({
     }),
 
   setImages: (items) => set({ images: items }),
+
+  clearImages: () => set({ images: [] }),
+
+  removeImages: (ids) =>
+    set((state) => {
+      const idSet = new Set(ids);
+      return { images: state.images.filter((img) => !idSet.has(img.id)) };
+    }),
+
 
   updateConfig: (patch) =>
     set((state) => ({ config: { ...state.config, ...patch } })),
@@ -87,4 +107,7 @@ export const useStitchStore = create<StitchStore>((set) => ({
       toast: null,
       config: DEFAULT_CONFIG,
     }),
+
+  openManager: () => set({ managerOpen: true }),
+  closeManager: () => set({ managerOpen: false }),
 }));
