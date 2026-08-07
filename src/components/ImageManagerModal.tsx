@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Check, Trash2, LayoutGrid } from "lucide-react";
+import { X, Check, Trash2, LayoutGrid, Eye } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -17,19 +17,26 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useStitchStore } from "@/store/stitchStore";
 import { cn } from "@/lib/utils";
+import ImageModal from "@/components/ImageModal";
 import type { ImageItem } from "@/types";
 
-/** 弹窗内单张缩略图:可拖拽排序、点击选中(多选)、右上角删除 */
+type Mode = "view" | "multi";
+
+/** 弹窗内单张缩略图:可拖拽排序、单击选中(view=单选绿框 / multi=多选绿框+徽章)、hover 看大图 */
 function ManagerThumb({
   item,
   index,
   selected,
+  mode,
   onToggle,
+  onView,
 }: {
   item: ImageItem;
   index: number;
   selected: boolean;
+  mode: Mode;
   onToggle: (id: string) => void;
+  onView: (id: string) => void;
 }) {
   const removeImage = useStitchStore((s) => s.removeImage);
 
@@ -62,7 +69,7 @@ function ManagerThumb({
           : "border-base-500 hover:border-base-400",
         isDragging && "opacity-50",
       )}
-      title={`${item.file.name} · 点击选中 · 拖拽排序`}
+      title={`${item.file.name} · 单击选中 · 拖拽排序 · hover 看大图`}
     >
       {/* 序号徽章 - 左下角 */}
       <div className="absolute bottom-1 left-1 z-10 flex h-4 min-w-4 items-center justify-center bg-base-900/80 px-1 font-mono text-[9px] text-ink-100">
@@ -86,18 +93,35 @@ function ManagerThumb({
         <X size={12} strokeWidth={2.5} />
       </button>
 
-      {/* 选中标记 - 左上角 */}
-      <div
+      {/* 选中标记 - 仅多选模式且选中时出现 */}
+      {mode === "multi" && selected && (
+        <div
+          className={cn(
+            "absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded border",
+            "border-accent-500 bg-accent-500 text-base-900",
+          )}
+          title="已选中"
+        >
+          <Check size={12} strokeWidth={3} />
+        </div>
+      )}
+
+      {/* 查看大图 - hover 居中浮现 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onView(item.id);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
         className={cn(
-          "absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded border transition-all",
-          selected
-            ? "border-accent-500 bg-accent-500 text-base-900"
-            : "border-base-400 bg-base-900/60 text-transparent group-hover:border-ink-200",
+          "absolute left-1/2 top-1/2 z-20 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2",
+          "items-center justify-center rounded-full bg-base-900/70 text-white",
+          "opacity-0 transition-opacity group-hover:opacity-100",
         )}
-        title="选择"
+        title="查看大图"
       >
-        <Check size={12} strokeWidth={3} />
-      </div>
+        <Eye size={18} />
+      </button>
 
       {/* 缩略图 */}
       <img
@@ -117,12 +141,15 @@ export default function ImageManagerModal() {
   const clearImages = useStitchStore((s) => s.clearImages);
   const closeManager = useStitchStore((s) => s.closeManager);
 
+  const [mode, setMode] = useState<Mode>("view");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // 关闭时清空选择
+  // 关闭时清空选择 / 预览
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeManager();
+      if (e.key === "Escape" && !previewId) closeManager();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -130,8 +157,25 @@ export default function ImageManagerModal() {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
       setSelected(new Set());
+      setPreviewId(null);
     };
-  }, [closeManager]);
+  }, [closeManager, previewId]);
+
+  // 大图预览:根据 previewId 由原始 File 生成全分辨率 ObjectURL,关闭时释放
+  useEffect(() => {
+    if (!previewId) {
+      setPreviewUrl(null);
+      return;
+    }
+    const it = images.find((i) => i.id === previewId);
+    if (!it) {
+      setPreviewUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(it.file);
+    setPreviewUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [previewId, images]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -143,8 +187,8 @@ export default function ImageManagerModal() {
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // 整组移动:拖动的图在选中集中且选中多于 1 张
-    if (selected.has(activeId) && selected.size > 1) {
+    // 整组移动:拖动的图在选中集中且选中多于 1 张(仅多选模式)
+    if (mode === "multi" && selected.has(activeId) && selected.size > 1) {
       const group = images.filter((i) => selected.has(i.id));
       const rest = images.filter((i) => !selected.has(i.id));
       const restIndex = rest.findIndex((i) => i.id === overId);
@@ -164,8 +208,16 @@ export default function ImageManagerModal() {
     setImages(arrayMove(images, oldIndex, newIndex));
   };
 
-  const toggle = (id: string) => {
+  // 单击缩略图
+  const onToggle = (id: string) => {
     setSelected((prev) => {
+      if (mode === "view") {
+        // 单选:再次点同一个则取消,否则只选它
+        const next = new Set<string>();
+        if (!(prev.has(id) && prev.size === 1)) next.add(id);
+        return next;
+      }
+      // 多选:切换
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -173,9 +225,21 @@ export default function ImageManagerModal() {
     });
   };
 
+  const enterMulti = () => {
+    setMode("multi");
+    setSelected(new Set());
+  };
+  const exitMulti = () => {
+    setMode("view");
+    setSelected(new Set());
+  };
+
   const allSelected = images.length > 0 && selected.size === images.length;
   const toggleAll = () => {
     setSelected(allSelected ? new Set() : new Set(images.map((i) => i.id)));
+  };
+  const invert = () => {
+    setSelected(new Set(images.filter((i) => !selected.has(i.id)).map((i) => i.id)));
   };
 
   const deleteSelected = () => {
@@ -183,6 +247,9 @@ export default function ImageManagerModal() {
     removeImages([...selected]);
     setSelected(new Set());
   };
+
+  // 大图预览
+  const previewIndex = previewId ? images.findIndex((i) => i.id === previewId) : -1;
 
   return (
     <div
@@ -203,6 +270,11 @@ export default function ImageManagerModal() {
             <span className="font-mono text-[11px] text-ink-200">
               共 {images.length} 张
             </span>
+            {mode === "multi" && (
+              <span className="rounded bg-accent-500/20 px-1.5 py-0.5 font-mono text-[10px] text-accent-300">
+                多选模式
+              </span>
+            )}
           </div>
           <button
             onClick={closeManager}
@@ -215,42 +287,81 @@ export default function ImageManagerModal() {
 
         {/* 工具栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-base-500 px-4 py-2">
-          <button
-            onClick={toggleAll}
-            className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
-          >
-            {allSelected ? "取消全选" : "全选"}
-          </button>
-          <span className="font-mono text-[11px] text-ink-200">
-            已选 {selected.size} 张
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={deleteSelected}
-              disabled={selected.size === 0}
-              className={cn(
-                "flex items-center gap-1.5 rounded px-2.5 py-1.5 font-mono text-[11px] transition-colors",
-                selected.size > 0
-                  ? "bg-warn-500/90 text-white hover:bg-warn-600"
-                  : "cursor-not-allowed bg-base-700 text-ink-200 opacity-40",
-              )}
-              title="删除选中的图片"
-            >
-              <Trash2 size={12} />
-              删除选中 ({selected.size})
-            </button>
-            <button
-              onClick={clearImages}
-              disabled={images.length === 0}
-              className={cn(
-                "rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors",
-                "hover:bg-base-600 disabled:cursor-not-allowed disabled:opacity-30",
-              )}
-              title="清空所有图片(保留配置)"
-            >
-              清空全部
-            </button>
-          </div>
+          {mode === "view" ? (
+            <>
+              <button
+                onClick={toggleAll}
+                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
+              >
+                {allSelected ? "取消全选" : "全选"}
+              </button>
+              <span className="font-mono text-[11px] text-ink-200">
+                已选 {selected.size} 张
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={enterMulti}
+                  className="rounded bg-accent-500/90 px-2.5 py-1.5 font-mono text-[11px] text-base-900 transition-colors hover:bg-accent-600"
+                  title="进入多选模式,批量操作"
+                >
+                  批量操作
+                </button>
+                <button
+                  onClick={clearImages}
+                  disabled={images.length === 0}
+                  className={cn(
+                    "rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors",
+                    "hover:bg-base-600 disabled:cursor-not-allowed disabled:opacity-30",
+                  )}
+                  title="清空所有图片(保留配置)"
+                >
+                  清空全部
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={exitMulti}
+                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
+                title="退出多选模式"
+              >
+                退出批量
+              </button>
+              <button
+                onClick={toggleAll}
+                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
+              >
+                {allSelected ? "取消全选" : "全选"}
+              </button>
+              <button
+                onClick={invert}
+                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
+                title="反选"
+              >
+                反选
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={deleteSelected}
+                  disabled={selected.size === 0}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-2.5 py-1.5 font-mono text-[11px] transition-colors",
+                    selected.size > 0
+                      ? "bg-warn-500/90 text-white hover:bg-warn-600"
+                      : "cursor-not-allowed bg-base-700 text-ink-200 opacity-40",
+                  )}
+                  title="删除选中的图片"
+                >
+                  <Trash2 size={12} />
+                  删除选中 ({selected.size})
+                </button>
+                <span className="font-mono text-[11px] text-ink-200">
+                  已选 {selected.size} 张
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* 网格主体 */}
@@ -276,7 +387,9 @@ export default function ImageManagerModal() {
                       item={item}
                       index={idx}
                       selected={selected.has(item.id)}
-                      onToggle={toggle}
+                      mode={mode}
+                      onToggle={onToggle}
+                      onView={setPreviewId}
                     />
                   ))}
                 </div>
@@ -287,9 +400,30 @@ export default function ImageManagerModal() {
 
         {/* 底部提示 */}
         <div className="border-t border-base-500 px-4 py-2 font-mono text-[10px] text-ink-200">
-          点击缩略图选中 · 拖动任意一张排序(选中多张则整组一起移动) · ESC 关闭
+          {mode === "view"
+            ? "查看/单选:单击绿框(无徽章) · 拖动排序 · 点「批量操作」进入多选 · hover 看大图"
+            : "多选:勾选徽章+绿框=已选 · 批量选取 · 整组拖 · 反选 · 批量删除 · 退出"}
         </div>
       </div>
+
+      {/* 大图预览 lightbox */}
+      {previewId && previewIndex >= 0 && previewUrl && (
+        <ImageModal
+          src={previewUrl}
+          name={images[previewIndex].file.name}
+          index={previewIndex + 1}
+          total={images.length}
+          onPrev={() =>
+            setPreviewId(
+              images[(previewIndex - 1 + images.length) % images.length].id,
+            )
+          }
+          onNext={() =>
+            setPreviewId(images[(previewIndex + 1) % images.length].id)
+          }
+          onClose={() => setPreviewId(null)}
+        />
+      )}
     </div>
   );
 }
