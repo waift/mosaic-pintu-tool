@@ -1,19 +1,20 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Upload, MousePointerClick, Clipboard, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { useStitchStore } from "@/store/stitchStore";
 import { LIMITS } from "@/types";
 
 /**
- * 上传区:单击 = 从剪贴板粘贴,双击 = 打开文件选择,拖拽 = 上传
- * 注:全局 Ctrl+V 粘贴在 Home.tsx 监听
+ * 上传区:单击 = 高亮进入「待粘贴」态(不再自动读剪贴板),等待 Ctrl+V 贴入;
+ *       双击 = 打开文件选择;拖拽 = 上传。
+ * 注:全局 Ctrl+V 粘贴在 Home.tsx 监听,任何时候按都能粘贴;单击只是给导入区一个视觉引导。
  */
 export default function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const zoneRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [armed, setArmed] = useState(false); // 单击高亮「待粘贴」态
   const handleFiles = useImageUpload();
-  const showToast = useStitchStore((s) => s.showToast);
 
   const onDoubleClick = () => inputRef.current?.click();
 
@@ -22,31 +23,8 @@ export default function UploadZone() {
     e.target.value = "";
   };
 
-  /** 单击:读取剪贴板里的图片 */
-  const onClick = async () => {
-    try {
-      if (!navigator.clipboard?.read) {
-        showToast("当前浏览器不支持读取剪贴板,请用 Ctrl+V 或双击上传");
-        return;
-      }
-      const items = await navigator.clipboard.read();
-      const files: File[] = [];
-      for (const item of items) {
-        const imageType = item.types.find((t) => t.startsWith("image/"));
-        if (imageType) {
-          const blob = await item.getType(imageType);
-          files.push(new File([blob], `clipboard-${Date.now()}.${imageType.split("/")[1]}`, { type: imageType }));
-        }
-      }
-      if (files.length === 0) {
-        showToast("剪贴板里没有图片");
-      } else {
-        handleFiles(files);
-      }
-    } catch {
-      showToast("读取剪贴板失败,请用 Ctrl+V 或双击上传");
-    }
-  };
+  /** 单击:仅切换「待粘贴」高亮态,不读取剪贴板(剪贴板由 Ctrl+V 触发) */
+  const onClick = () => setArmed((a) => !a);
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -61,8 +39,29 @@ export default function UploadZone() {
 
   const onDragLeave = () => setDragging(false);
 
+  // 待粘贴态的解除:粘贴成功 / 点击页面其它位置 / 按 Esc
+  useEffect(() => {
+    if (!armed) return;
+    const onPaste = () => setArmed(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setArmed(false);
+    };
+    const onDocClick = (e: MouseEvent) => {
+      if (!zoneRef.current?.contains(e.target as Node)) setArmed(false);
+    };
+    window.addEventListener("paste", onPaste);
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("click", onDocClick, true);
+    return () => {
+      window.removeEventListener("paste", onPaste);
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onDocClick, true);
+    };
+  }, [armed]);
+
   return (
     <div
+      ref={zoneRef}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onDrop={onDrop}
@@ -73,7 +72,9 @@ export default function UploadZone() {
         "px-4 py-6 text-center select-none",
         dragging
           ? "border-accent-500 bg-accent-500/5 shadow-accent-glow"
-          : "border-base-500 hover:border-base-400 hover:bg-base-700/50",
+          : armed
+            ? "border-accent-500 bg-accent-500/10 ring-2 ring-accent-500/50"
+            : "border-base-500 hover:border-base-400 hover:bg-base-700/50",
       )}
     >
       <input
@@ -89,7 +90,7 @@ export default function UploadZone() {
         <div
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
-            dragging
+            dragging || armed
               ? "bg-accent-500/20 text-accent-400"
               : "bg-base-600 text-ink-200 group-hover:text-ink-100",
           )}
@@ -98,10 +99,17 @@ export default function UploadZone() {
         </div>
 
         <div className="font-display text-sm font-medium text-ink-50">
-          {dragging ? "松开即可上传" : "单击粘贴 · 双击上传 · 拖拽放入"}
+          {dragging
+            ? "松开即可上传"
+            : armed
+              ? "按 Ctrl+V 粘贴图片"
+              : "单击就绪 · 双击上传 · 拖拽放入"}
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-ink-200">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] text-ink-200">
+          <span className="flex items-center gap-1">
+            <MousePointerClick size={12} /> 单击就绪
+          </span>
           <span className="flex items-center gap-1">
             <MousePointerClick size={12} /> 双击
           </span>
@@ -109,7 +117,7 @@ export default function UploadZone() {
             <Upload size={12} /> 拖拽
           </span>
           <span className="flex items-center gap-1">
-            <Clipboard size={12} /> 单击/Ctrl+V
+            <Clipboard size={12} /> Ctrl+V
           </span>
         </div>
 
