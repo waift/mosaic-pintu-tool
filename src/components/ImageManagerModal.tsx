@@ -431,17 +431,16 @@ export default function ImageManagerModal() {
                 </div>
               </SortableContext>
 
-              {/* 拖拽浮层:单项正常 / 多选整组堆叠卡片 */}
+              {/* 拖拽浮层:仅多选整组拖动时显示堆叠卡片,单项拖动用 dnd-kit 默认行为(无额外副本) */}
               <DragOverlay
                 dropAnimation={{
                   duration: 200,
                   easing: "cubic-bezier(0.18, 0.67, 0.1, 0.99)",
                 }}
               >
-                {activeId ? (
-                  mode === "multi" && selected.has(activeId) && selected.size > 1 ? (
-                    // 整组堆叠:像一摞扑克牌,每张错开
-                    <div className="relative h-20 w-20">
+                {activeId && mode === "multi" && selected.has(activeId) && selected.size > 1 ? (
+                  // 整组堆叠:像一摞扑克牌,每张错开
+                  <div className="relative h-20 w-20">
                       {Array.from(selected).map((id, i) => {
                         const it = images.find((img) => img.id === id);
                         if (!it) return null;
@@ -470,22 +469,6 @@ export default function ImageManagerModal() {
                         );
                       })}
                     </div>
-                  ) : (
-                    // 单项拖拽
-                    <div className="h-20 w-20 overflow-hidden rounded border border-accent-500 ring-2 ring-accent-500/60 bg-base-700 shadow-xl">
-                      {(() => {
-                        const it = images.find((img) => img.id === activeId);
-                        return it ? (
-                          <img
-                            src={it.thumbUrl}
-                            alt={it.file.name}
-                            className="h-full w-full object-cover"
-                            draggable={false}
-                          />
-                        ) : null;
-                      })()}
-                    </div>
-                  )
                 ) : null}
               </DragOverlay>
             </DndContext>
