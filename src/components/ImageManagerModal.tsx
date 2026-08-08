@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { X, Check, Trash2, LayoutGrid, Eye } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
   closestCenter,
 } from "@dnd-kit/core";
 import {
@@ -28,6 +30,7 @@ function ManagerThumb({
   index,
   selected,
   mode,
+  activeId,
   onToggle,
   onView,
 }: {
@@ -35,6 +38,7 @@ function ManagerThumb({
   index: number;
   selected: boolean;
   mode: Mode;
+  activeId?: string;
   onToggle: (id: string) => void;
   onView: (id: string) => void;
 }) {
@@ -54,6 +58,10 @@ function ManagerThumb({
     transition,
   };
 
+  // 整组拖动时,同组非拖动项淡化(由父级传入 activeId 判断)
+  const isGroupSibling =
+    activeId && mode === "multi" && selected && item.id !== activeId;
+
   return (
     <div
       ref={setNodeRef}
@@ -68,15 +76,16 @@ function ManagerThumb({
           ? "border-accent-500 ring-2 ring-accent-500/60"
           : "border-base-500 hover:border-accent-500 hover:shadow-lift",
         isDragging && "opacity-50 ring-2 ring-accent-500",
+        isGroupSibling && "opacity-20",
       )}
       title={`${item.file.name} · 单击选中 · 拖拽排序 · hover 看大图`}
     >
-      {/* 序号徽章 - 左上角 */}
-      <div className="absolute left-1 top-1 z-10 flex h-4 min-w-4 items-center justify-center bg-base-900/80 px-1 font-mono text-[9px] text-ink-100">
+      {/* 序号徽章 - 左上角 (与列表一致:紧贴角落) */}
+      <div className="absolute left-0 top-0 z-10 flex h-4 min-w-4 items-center justify-center bg-base-900/80 px-1 font-mono text-[9px] text-ink-100">
         {index + 1}
       </div>
 
-      {/* 删除按钮 - 右上角 */}
+      {/* 删除按钮 - 右上角 (与列表一致:紧贴角落) */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -84,8 +93,8 @@ function ManagerThumb({
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className={cn(
-          "absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center",
-          "rounded bg-warn-500/90 text-white opacity-0 transition-opacity",
+          "absolute right-0 top-0 z-10 flex h-5 w-5 items-center justify-center",
+          "bg-warn-500/90 text-white opacity-0 transition-opacity",
           "hover:bg-warn-600 group-hover:opacity-100",
         )}
         title="删除"
@@ -93,11 +102,18 @@ function ManagerThumb({
         <X size={12} strokeWidth={2.5} />
       </button>
 
-      {/* 选中标记 - 仅多选模式且选中时出现 */}
+      {/* 尺寸标签 - 底部 (与列表一致);多选选中时被选中徽章替代 */}
+      {!(mode === "multi" && selected) && (
+        <div className="absolute bottom-0 left-0 z-10 bg-base-900/80 px-1 py-px font-mono text-[8px] text-ink-200">
+          {item.width}×{item.height}
+        </div>
+      )}
+
+      {/* 选中标记 - 仅多选模式且选中时出现(左下角,替代尺寸标签) */}
       {mode === "multi" && selected && (
         <div
           className={cn(
-            "absolute left-1 bottom-1 z-10 flex h-5 w-5 items-center justify-center rounded border",
+            "absolute left-0 bottom-0 z-10 flex h-5 w-5 items-center justify-center rounded border",
             "border-accent-500 bg-accent-500 text-base-900",
           )}
           title="已选中"
@@ -106,7 +122,7 @@ function ManagerThumb({
         </div>
       )}
 
-      {/* 查看大图 - hover 右下角浮现 */}
+      {/* 查看大图 - hover 右下角浮现 (与删除按钮同尺寸: h-5 w-5 小方块) */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -114,13 +130,13 @@ function ManagerThumb({
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className={cn(
-          "absolute right-1 bottom-1 z-20 flex h-9 w-9",
-          "items-center justify-center rounded-full bg-base-900/70 text-white",
+          "absolute right-0 bottom-0 z-20 flex h-5 w-5",
+          "items-center justify-center rounded bg-base-900/70 text-white",
           "opacity-0 transition-opacity group-hover:opacity-100",
         )}
         title="查看大图"
       >
-        <Eye size={18} />
+        <Eye size={12} />
       </button>
 
       {/* 缩略图 */}
@@ -145,6 +161,7 @@ export default function ImageManagerModal() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null); // 拖动中的项ID(用于DragOverlay)
 
   // 用 ref 跟踪 previewId,供 ESC 监听读取最新值(避免 effect 依赖 previewId 导致预览状态被重置)
   const previewIdRef = useRef<string | null>(null);
@@ -390,13 +407,15 @@ export default function ImageManagerModal() {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
-              onDragEnd={onDragEnd}
+              onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+              onDragEnd={(e: DragEndEvent) => { onDragEnd(e); setActiveId(null); }}
+              onDragCancel={() => setActiveId(null)}
             >
               <SortableContext
                 items={images.map((i) => i.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-3 justify-items-center gap-2 sm:grid-cols-4 md:grid-cols-5">
+                <div className="flex flex-wrap gap-2">
                   {images.map((item, idx) => (
                     <ManagerThumb
                       key={item.id}
@@ -404,12 +423,71 @@ export default function ImageManagerModal() {
                       index={idx}
                       selected={selected.has(item.id)}
                       mode={mode}
+                      activeId={activeId ?? undefined}
                       onToggle={onToggle}
                       onView={setPreviewId}
                     />
                   ))}
                 </div>
               </SortableContext>
+
+              {/* 拖拽浮层:单项正常 / 多选整组堆叠卡片 */}
+              <DragOverlay
+                dropAnimation={{
+                  duration: 200,
+                  easing: "cubic-bezier(0.18, 0.67, 0.1, 0.99)",
+                }}
+              >
+                {activeId ? (
+                  mode === "multi" && selected.has(activeId) && selected.size > 1 ? (
+                    // 整组堆叠:像一摞扑克牌,每张错开
+                    <div className="relative h-20 w-20">
+                      {Array.from(selected).map((id, i) => {
+                        const it = images.find((img) => img.id === id);
+                        if (!it) return null;
+                        const isMain = id === activeId;
+                        return (
+                          <div
+                            key={id}
+                            className={cn(
+                              "absolute h-20 w-20 overflow-hidden rounded border bg-base-700 shadow-xl",
+                              isMain
+                                ? "border-accent-500 ring-2 ring-accent-500/60 z-10"
+                                : "border-base-400",
+                            )}
+                            style={{
+                              transform: `translate(${i * 4}px, ${i * 4}px)`,
+                              zIndex: i + (isMain ? 10 : 0),
+                            }}
+                          >
+                            <img
+                              src={it.thumbUrl}
+                              alt={it.file.name}
+                              className="h-full w-full object-cover"
+                              draggable={false}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // 单项拖拽
+                    <div className="h-20 w-20 overflow-hidden rounded border border-accent-500 ring-2 ring-accent-500/60 bg-base-700 shadow-xl">
+                      {(() => {
+                        const it = images.find((img) => img.id === activeId);
+                        return it ? (
+                          <img
+                            src={it.thumbUrl}
+                            alt={it.file.name}
+                            className="h-full w-full object-cover"
+                            draggable={false}
+                          />
+                        ) : null;
+                      })()}
+                    </div>
+                  )
+                ) : null}
+              </DragOverlay>
             </DndContext>
           )}
         </div>
