@@ -6,9 +6,11 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  pointerWithin,
+  closestCenter,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
-  closestCenter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -24,6 +26,12 @@ import type { ImageItem } from "@/types";
 
 type Mode = "view" | "multi";
 
+// 碰撞检测:优先按指针位置命中(图片间重排),否则回退 closestCenter
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  return pointerHits.length > 0 ? pointerHits : closestCenter(args);
+};
+
 /** 弹窗内单张缩略图:可拖拽排序、单击选中(view=单选绿框 / multi=多选绿框+徽章)、hover 看大图 */
 function ManagerThumb({
   item,
@@ -31,6 +39,7 @@ function ManagerThumb({
   selected,
   mode,
   activeId,
+  inOverlay,
   onToggle,
   onView,
 }: {
@@ -39,6 +48,7 @@ function ManagerThumb({
   selected: boolean;
   mode: Mode;
   activeId?: string;
+  inOverlay: boolean;
   onToggle: (id: string) => void;
   onView: (id: string) => void;
 }) {
@@ -53,14 +63,12 @@ function ManagerThumb({
     isDragging,
   } = useSortable({ id: item.id });
 
+  // 整组拖动时,参与浮层的图原地保留为清晰占位镜像(虚线框 + 半透明,抑制 transform 不跟随光标);
+  // 其余图跟随 dnd-kit 让位动画
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(inOverlay ? undefined : transform),
     transition,
   };
-
-  // 整组拖动时,同组非拖动项淡化(由父级传入 activeId 判断)
-  const isGroupSibling =
-    activeId && mode === "multi" && selected && item.id !== activeId;
 
   return (
     <div
@@ -75,8 +83,10 @@ function ManagerThumb({
         selected
           ? "border-accent-500 ring-2 ring-accent-500/60"
           : "border-base-500 hover:border-accent-500 hover:shadow-lift",
-        isDragging && "opacity-50 ring-2 ring-accent-500",
-        isGroupSibling && "opacity-20",
+        // 单项拖(无浮层)源图跟随光标并半透明;整组拖时组内图原地保留为清晰占位镜像
+        !inOverlay && isDragging && "opacity-50 ring-2 ring-accent-500",
+        // 整组拖动中:选中图原地留虚线占位框(清晰镜像,含被拖动那张)
+        inOverlay && "opacity-40 border-2 border-dashed border-accent-400/70",
       )}
       title={`${item.file.name} · 单击选中 · 拖拽排序 · hover 看大图`}
     >
@@ -161,7 +171,10 @@ export default function ImageManagerModal() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null); // 拖动中的项ID(用于DragOverlay)
+  const [activeId, setActiveId] = useState<string | null>(null); // 拖动中的项ID(用于 DragOverlay)
+
+  // 末尾投放区 DOM 引用:用于判断拖拽结束时的指针是否落在"放到末尾"区域
+  const endZoneRef = useRef<HTMLDivElement>(null);
 
   // 用 ref 跟踪 previewId,供 ESC 监听读取最新值(避免 effect 依赖 previewId 导致预览状态被重置)
   const previewIdRef = useRef<string | null>(null);
@@ -208,16 +221,32 @@ export default function ImageManagerModal() {
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
+    setActiveId(null);
     if (!over || active.id === over.id) return;
     const activeId = String(active.id);
     const overId = String(over.id);
+
+    // 末尾投放判定:拖拽结束时指针 Y 落在"放到末尾"区域(末尾投放区顶部)之上 → 放到队列最后。
+    // 用指针最终坐标(dnd-kit 不保证哨兵 droppable 可靠命中,故直接读 DOM 矩形判断,稳定可靠)
+    let overIsEnd = false;
+    const endEl = endZoneRef.current;
+    if (endEl) {
+      const r = endEl.getBoundingClientRect();
+      const pe = e.activatorEvent as PointerEvent;
+      if (typeof pe?.clientY === "number") {
+        const pointerY = pe.clientY + e.delta.y;
+        overIsEnd = pointerY >= r.top - 6;
+      }
+    }
 
     // 整组移动:拖动的图在选中集中且选中多于 1 张(仅多选模式)
     if (mode === "multi" && selected.has(activeId) && selected.size > 1) {
       const group = images.filter((i) => selected.has(i.id));
       const rest = images.filter((i) => !selected.has(i.id));
       // 计算插入点:优先落在非选中图之前;若落点本身在组内,取它在原序列之前的未选中图数量
-      let restIndex = rest.findIndex((i) => i.id === overId);
+      let restIndex = overIsEnd
+        ? rest.length // 拖到末尾投放区:插到队列最后
+        : rest.findIndex((i) => i.id === overId);
       if (restIndex < 0) {
         const overIdx = images.findIndex((i) => i.id === overId);
         if (overIdx < 0) return;
@@ -235,8 +264,11 @@ export default function ImageManagerModal() {
 
     // 单张移动
     const oldIndex = images.findIndex((i) => i.id === activeId);
-    const newIndex = images.findIndex((i) => i.id === overId);
-    if (oldIndex < 0 || newIndex < 0) return;
+    if (oldIndex < 0) return;
+    const newIndex = overIsEnd
+      ? images.length - 1
+      : images.findIndex((i) => i.id === overId);
+    if (newIndex < 0) return;
     setImages(arrayMove(images, oldIndex, newIndex));
   };
 
@@ -398,7 +430,7 @@ export default function ImageManagerModal() {
         </div>
 
         {/* 网格主体 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex flex-1 flex-col overflow-y-auto p-4">
           {images.length === 0 ? (
             <div className="flex h-40 items-center justify-center font-mono text-xs text-ink-200">
               暂无图片
@@ -406,30 +438,49 @@ export default function ImageManagerModal() {
           ) : (
             <DndContext
               sensors={sensors}
-              collisionDetection={closestCenter}
+              collisionDetection={collisionDetection}
               onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
-              onDragEnd={(e: DragEndEvent) => { onDragEnd(e); setActiveId(null); }}
+              onDragEnd={onDragEnd}
               onDragCancel={() => setActiveId(null)}
             >
-              <SortableContext
-                items={images.map((i) => i.id)}
-                strategy={rectSortingStrategy}
-              >
-                <div className="flex flex-wrap gap-2">
-                  {images.map((item, idx) => (
-                    <ManagerThumb
-                      key={item.id}
-                      item={item}
-                      index={idx}
-                      selected={selected.has(item.id)}
-                      mode={mode}
-                      activeId={activeId ?? undefined}
-                      onToggle={onToggle}
-                      onView={setPreviewId}
-                    />
-                  ))}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <SortableContext
+                  items={images.map((i) => i.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="flex flex-wrap gap-2 content-start">
+                    {images.map((item, idx) => {
+                      const sel = selected.has(item.id);
+                      return (
+                        <ManagerThumb
+                          key={item.id}
+                          item={item}
+                          index={idx}
+                          selected={sel}
+                          mode={mode}
+                          activeId={activeId ?? undefined}
+                          inOverlay={
+                            mode === "multi" && !!activeId && selected.size > 1 && sel
+                          }
+                          onToggle={onToggle}
+                          onView={setPreviewId}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+                {/* 末尾投放区:拖到此处(队列下方的虚线区)即把整组/单张放到队列最后 */}
+                <div
+                  ref={endZoneRef}
+                  className={cn(
+                    "mt-2 flex min-h-[48px] flex-1 items-center justify-center rounded border border-dashed",
+                    "border-base-500/50 font-mono text-[10px] text-ink-300",
+                    "transition-colors",
+                  )}
+                >
+                  拖到此处 → 放到末尾
                 </div>
-              </SortableContext>
+              </div>
 
               {/* 拖拽浮层:仅多选整组拖动时显示堆叠卡片,单项拖动用 dnd-kit 默认行为(无额外副本) */}
               <DragOverlay
@@ -479,7 +530,7 @@ export default function ImageManagerModal() {
         <div className="border-t border-base-500 px-4 py-2 font-mono text-[10px] text-ink-200">
           {mode === "view"
             ? "查看/单选:单击绿框(无徽章) · 拖动排序 · 点「批量操作」进入多选 · hover 看大图"
-            : "多选:勾选徽章+绿框=已选 · 批量选取 · 整组拖 · 反选 · 批量删除 · 退出"}
+            : "多选:勾选徽章+绿框=已选 · 批量选取 · 整组拖 · 拖到下方虚线区=放到末尾 · 反选 · 批量删除 · 退出"}
         </div>
       </div>
       </div>
