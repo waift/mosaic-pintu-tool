@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Check, Trash2, LayoutGrid, Eye } from "lucide-react";
 import {
   DndContext,
@@ -71,8 +71,8 @@ function ManagerThumb({
       )}
       title={`${item.file.name} · 单击选中 · 拖拽排序 · hover 看大图`}
     >
-      {/* 序号徽章 - 左下角 */}
-      <div className="absolute bottom-1 left-1 z-10 flex h-4 min-w-4 items-center justify-center bg-base-900/80 px-1 font-mono text-[9px] text-ink-100">
+      {/* 序号徽章 - 左上角 */}
+      <div className="absolute left-1 top-1 z-10 flex h-4 min-w-4 items-center justify-center bg-base-900/80 px-1 font-mono text-[9px] text-ink-100">
         {index + 1}
       </div>
 
@@ -97,7 +97,7 @@ function ManagerThumb({
       {mode === "multi" && selected && (
         <div
           className={cn(
-            "absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded border",
+            "absolute left-1 bottom-1 z-10 flex h-5 w-5 items-center justify-center rounded border",
             "border-accent-500 bg-accent-500 text-base-900",
           )}
           title="已选中"
@@ -106,7 +106,7 @@ function ManagerThumb({
         </div>
       )}
 
-      {/* 查看大图 - hover 居中浮现 */}
+      {/* 查看大图 - hover 右下角浮现 */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -114,7 +114,7 @@ function ManagerThumb({
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className={cn(
-          "absolute left-1/2 top-1/2 z-20 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2",
+          "absolute right-1 bottom-1 z-20 flex h-9 w-9",
           "items-center justify-center rounded-full bg-base-900/70 text-white",
           "opacity-0 transition-opacity group-hover:opacity-100",
         )}
@@ -146,10 +146,18 @@ export default function ImageManagerModal() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // 关闭时清空选择 / 预览
+  // 用 ref 跟踪 previewId,供 ESC 监听读取最新值(避免 effect 依赖 previewId 导致预览状态被重置)
+  const previewIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    previewIdRef.current = previewId;
+  }, [previewId]);
+
+  // 关闭/卸载时清理选择、预览与滚动锁;依赖稳定,不随 previewId 变化触发重置
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !previewId) closeManager();
+      if (e.key !== "Escape") return;
+      if (previewIdRef.current) setPreviewId(null);
+      else closeManager();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -159,7 +167,7 @@ export default function ImageManagerModal() {
       setSelected(new Set());
       setPreviewId(null);
     };
-  }, [closeManager, previewId]);
+  }, [closeManager, setPreviewId]);
 
   // 大图预览:根据 previewId 由原始 File 生成全分辨率 ObjectURL,关闭时释放
   useEffect(() => {
@@ -388,7 +396,7 @@ export default function ImageManagerModal() {
                 items={images.map((i) => i.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-3 justify-items-center gap-3 sm:grid-cols-4 md:grid-cols-5">
+                <div className="grid grid-cols-3 justify-items-center gap-2 sm:grid-cols-4 md:grid-cols-5">
                   {images.map((item, idx) => (
                     <ManagerThumb
                       key={item.id}
