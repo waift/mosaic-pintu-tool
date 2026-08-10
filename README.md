@@ -20,13 +20,23 @@
 | **本地开发** | `npm install && npm run dev` | 打开终端给出的 `http://localhost:xxxx/` |
 | **双击离线版** | 根目录 `拼图工具.html` | 无需 Node / 服务器 / 联网，自包含单文件 |
 
-## 构建
+## 构建与检查
 
 ```bash
 npm run build        # 产出 dist/（用于部署 / 在线网页）
 npm run build:single # 产出 dist-single/single.html，再 cp 为根目录 拼图工具.html
 npm run check        # tsc 类型检查
+npm run lint         # eslint 代码规范
+npm test             # vitest 单元测试（48 条，约 0.8s）
 ```
+
+## 项目文档
+
+| 文档 | 内容 |
+|------|------|
+| **[docs/开发报告.md](./docs/开发报告.md)** | 技术主文档：架构、关键决策（ADR）、踩坑清单、开发日志、技术债。**接手维护先读这份** |
+| [docs/功能规划.md](./docs/功能规划.md) | 功能路线图、优先级、已否决方案 |
+| 本文件 | 怎么用、怎么改、分支与提交规范 |
 
 ---
 
@@ -76,7 +86,13 @@ GitHub 用 `npm ci` 严格按 `package-lock.json` 安装。本地加 / 删依赖
 
 ### 6. 提交前自测
 
-改完先 `npm run dev` 在浏览器自测；`npm run check` 跑类型检查。确认无误再 push。
+改完先 `npm run dev` 在浏览器自测，然后跑一遍与 CI **完全相同**的三道门禁：
+
+```bash
+npm run check && npm run lint && npm test
+```
+
+CI（`deploy.yml`）会在部署前依次执行 `tsc → eslint → vitest`，**任一失败则不发布**。本地先跑几秒钟出结果，比等 CI 快。
 
 ---
 
