@@ -11,6 +11,7 @@ import { useImageUpload } from "@/hooks/useImageUpload";
 import { useTheme } from "@/hooks/useTheme";
 import { stitchAndExport } from "@/utils/image";
 import { cn } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 
 export default function Home() {
   const images = useStitchStore((s) => s.images);
@@ -103,20 +104,15 @@ export default function Home() {
           >
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <button
+          <Button
+            variant="secondary"
             onClick={reset}
             disabled={images.length === 0 && !result}
-            className={cn(
-              "flex items-center gap-1.5 rounded px-2.5 py-1.5",
-              "font-mono text-[11px] text-ink-200 transition-colors",
-              "hover:bg-base-700 hover:text-ink-100",
-              "disabled:cursor-not-allowed disabled:opacity-30",
-            )}
             title="清空全部"
           >
             <RotateCcw size={12} />
             重置
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -129,16 +125,11 @@ export default function Home() {
           <StitchConfig />
 
           {/* 生成按钮 */}
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={onGenerate}
             disabled={!canGenerate}
-            className={cn(
-              "flex items-center justify-center gap-2 rounded px-4 py-3",
-              "font-display text-sm font-medium transition-all",
-              canGenerate
-                ? "bg-accent-500 text-base-900 shadow-accent-glow hover:-translate-y-0.5"
-                : "cursor-not-allowed bg-base-700 text-ink-200",
-            )}
           >
             {generating ? (
               <>
@@ -151,7 +142,7 @@ export default function Home() {
                 生成长图
               </>
             )}
-          </button>
+          </Button>
 
           {/* 错误提示(生成失败时下方也展示) */}
           {status === "error" && error && (

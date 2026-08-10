@@ -1,5 +1,6 @@
 import { useStitchStore } from "@/store/stitchStore";
 import { ConfigGroup, Segmented } from "@/components/ui/ConfigControls";
+import { Card } from "@/components/ui/Card";
 import {
   DIRECTION_LABELS,
   FORMAT_LABELS,
@@ -15,7 +16,7 @@ export default function StitchConfig() {
   const showQuality = config.format !== "png";
 
   return (
-    <div className="space-y-4 rounded border border-base-500 bg-base-700/40 p-4">
+    <Card variant="panel" className="space-y-4">
       <div className="font-display text-xs font-medium uppercase tracking-wider text-ink-200">
         拼接配置
       </div>
@@ -144,6 +145,6 @@ export default function StitchConfig() {
           />
         </ConfigGroup>
       )}
-    </div>
+    </Card>
   );
 }

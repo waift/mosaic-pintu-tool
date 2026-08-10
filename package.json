@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-tokens.mjs",
+    "check:tokens": "node scripts/check-tokens.mjs",
     "preview": "vite preview",
     "build:single": "vite build --config vite.singlefile.config.ts",
     "check": "tsc -b --noEmit",

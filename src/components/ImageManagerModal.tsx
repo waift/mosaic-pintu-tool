@@ -22,6 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useStitchStore } from "@/store/stitchStore";
 import { cn } from "@/lib/utils";
 import ImageModal from "@/components/ImageModal";
+import Button from "@/components/ui/Button";
 import type { ImageItem } from "@/types";
 
 type Mode = "view" | "multi";
@@ -334,7 +335,7 @@ export default function ImageManagerModal() {
               共 {images.length} 张
             </span>
             {mode === "multi" && (
-              <span className="rounded bg-accent-500/20 px-1.5 py-0.5 font-mono text-[10px] text-accent-300">
+              <span className="rounded bg-accent-500/20 px-1.5 py-0.5 font-mono text-[10px] text-accent-400">
                 多选模式
               </span>
             )}
@@ -352,73 +353,46 @@ export default function ImageManagerModal() {
         <div className="flex flex-wrap items-center gap-2 border-b border-base-500 px-4 py-2">
           {mode === "view" ? (
             <>
-              <button
-                onClick={toggleAll}
-                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
-              >
+              <Button onClick={toggleAll}>
                 {allSelected ? "取消全选" : "全选"}
-              </button>
+              </Button>
               <span className="font-mono text-[11px] text-ink-200">
                 已选 {selected.size} 张
               </span>
               <div className="ml-auto flex items-center gap-2">
-                <button
-                  onClick={enterMulti}
-                  className="rounded bg-accent-500/90 px-2.5 py-1.5 font-mono text-[11px] text-base-900 transition-colors hover:bg-accent-600"
-                  title="进入多选模式,批量操作"
-                >
+                <Button variant="primary" onClick={enterMulti} title="进入多选模式,批量操作">
                   批量操作
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={clearImages}
                   disabled={images.length === 0}
-                  className={cn(
-                    "rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors",
-                    "hover:bg-base-600 disabled:cursor-not-allowed disabled:opacity-30",
-                  )}
                   title="清空所有图片(保留配置)"
                 >
                   清空全部
-                </button>
+                </Button>
               </div>
             </>
           ) : (
             <>
-              <button
-                onClick={exitMulti}
-                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
-                title="退出多选模式"
-              >
+              <Button onClick={exitMulti} title="退出多选模式">
                 退出批量
-              </button>
-              <button
-                onClick={toggleAll}
-                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
-              >
+              </Button>
+              <Button onClick={toggleAll}>
                 {allSelected ? "取消全选" : "全选"}
-              </button>
-              <button
-                onClick={invert}
-                className="rounded px-2.5 py-1.5 font-mono text-[11px] text-ink-100 transition-colors hover:bg-base-600"
-                title="反选"
-              >
+              </Button>
+              <Button onClick={invert} title="反选">
                 反选
-              </button>
+              </Button>
               <div className="ml-auto flex items-center gap-2">
-                <button
+                <Button
+                  variant="danger"
                   onClick={deleteSelected}
                   disabled={selected.size === 0}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded px-2.5 py-1.5 font-mono text-[11px] transition-colors",
-                    selected.size > 0
-                      ? "bg-warn-500/90 text-white hover:bg-warn-600"
-                      : "cursor-not-allowed bg-base-700 text-ink-200 opacity-40",
-                  )}
                   title="删除选中的图片"
                 >
                   <Trash2 size={12} />
                   删除选中 ({selected.size})
-                </button>
+                </Button>
                 <span className="font-mono text-[11px] text-ink-200">
                   已选 {selected.size} 张
                 </span>
@@ -471,7 +445,7 @@ export default function ImageManagerModal() {
                   ref={endZoneRef}
                   className={cn(
                     "mt-2 flex min-h-[48px] flex-1 items-center justify-center rounded border border-dashed",
-                    "border-base-500/50 font-mono text-[10px] text-ink-300",
+                    "border-base-500/50 font-mono text-[10px] text-ink-200",
                     "transition-colors",
                   )}
                 >
