@@ -38,7 +38,6 @@ function ManagerThumb({
   index,
   selected,
   mode,
-  activeId,
   inOverlay,
   onToggle,
   onView,
@@ -47,7 +46,6 @@ function ManagerThumb({
   index: number;
   selected: boolean;
   mode: Mode;
-  activeId?: string;
   inOverlay: boolean;
   onToggle: (id: string) => void;
   onView: (id: string) => void;
@@ -458,7 +456,6 @@ export default function ImageManagerModal() {
                           index={idx}
                           selected={sel}
                           mode={mode}
-                          activeId={activeId ?? undefined}
                           inOverlay={
                             mode === "multi" && !!activeId && selected.size > 1 && sel
                           }
